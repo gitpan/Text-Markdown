@@ -1,11 +1,11 @@
 ---
 name: Text-Markdown
-version: 1.0.1
+version: 1.0.2
 author: ~
 abstract: ~
 license: perl
 provides:
   Text::Markdown:
     file: lib/Text/Markdown.pm
-    version: 1.0.1
+    version: 1.0.2
 generated_by: Module::Build version 0.2611

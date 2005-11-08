@@ -14,16 +14,9 @@ use warnings;
 use Digest::MD5 qw(md5_hex);
 use base 'Exporter';
 
-our $VERSION   = '1.0.1';
+our $VERSION   = '1.0.2';
 our @EXPORT_OK = qw/markdown/;
 
-sub new { bless {} }
-
-sub markdown {
-    my ( $self, $text ) = @_;
-    $text = $self unless ref $self;
-    return Markdown($text);
-}
 # Tue 14 Dec 2004
 
 ## Disabled; causes problems under Perl 5.6.1:
@@ -37,6 +30,17 @@ sub markdown {
 my $g_empty_element_suffix = " />";     # Change to ">" for HTML output
 my $g_tab_width = 4;
 
+sub new { bless {} }
+
+sub markdown {
+    my ( $self, $text, $options ) = @_;
+    $options ||= {};
+    $g_empty_element_suffix = $options->{empty_element_suffix}
+        if $options->{empty_element_suffix};
+    $g_tab_width = $options->{tab_width} if $options->{tab_width};
+    $text = $self unless ref $self;
+    return Markdown($text);
+}
 
 #
 # Globals:
@@ -1185,6 +1189,13 @@ B<Markdown>
     use Text::Markdown;
     my $m = Text::Markdown->new;
     my $html = $m->markdown($text);
+
+    use Text::Markdown;
+    my $m = Text::Markdown->new;
+    my $html = $m->markdown( $text, {
+        empty_element_suffix => '>',
+        tab_width =>2
+    } );
 
 =head1 DESCRIPTION
 

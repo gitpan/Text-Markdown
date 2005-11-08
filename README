@@ -9,6 +9,13 @@ SYNOPSIS
         my $m = Text::Markdown->new;
         my $html = $m->markdown($text);
 
+        use Text::Markdown;
+        my $m = Text::Markdown->new;
+        my $html = $m->markdown( $text, {
+            empty_element_suffix => '>',
+            tab_width =>2
+        } );
+
 DESCRIPTION
     Markdown is a text-to-HTML filter; it translates an easy-to-read /
     easy-to-write structured text format into HTML. Markdown's text format
