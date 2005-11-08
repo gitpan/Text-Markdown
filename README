@@ -5,6 +5,12 @@ SYNOPSIS
         use Text::Markdown 'markdown';
         my $html = markdown($text);
 
+        use Text::Markdown 'markdown';
+        my $html = markdown( $text, {
+            empty_element_suffix => '>',
+            tab_width => 2
+        } );
+
         use Text::Markdown;
         my $m = Text::Markdown->new;
         my $html = $m->markdown($text);
@@ -13,7 +19,7 @@ SYNOPSIS
         my $m = Text::Markdown->new;
         my $html = $m->markdown( $text, {
             empty_element_suffix => '>',
-            tab_width =>2
+            tab_width => 2
         } );
 
 DESCRIPTION

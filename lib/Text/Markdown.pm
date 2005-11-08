@@ -14,7 +14,7 @@ use warnings;
 use Digest::MD5 qw(md5_hex);
 use base 'Exporter';
 
-our $VERSION   = '1.0.2';
+our $VERSION   = '1.0.3';
 our @EXPORT_OK = qw/markdown/;
 
 # Tue 14 Dec 2004
@@ -34,11 +34,14 @@ sub new { bless {} }
 
 sub markdown {
     my ( $self, $text, $options ) = @_;
+    unless (ref $self) {
+        $options = $text;
+        $text = $self;
+    }
     $options ||= {};
     $g_empty_element_suffix = $options->{empty_element_suffix}
         if $options->{empty_element_suffix};
     $g_tab_width = $options->{tab_width} if $options->{tab_width};
-    $text = $self unless ref $self;
     return Markdown($text);
 }
 
@@ -1186,6 +1189,12 @@ B<Markdown>
     use Text::Markdown 'markdown';
     my $html = markdown($text);
 
+    use Text::Markdown 'markdown';
+    my $html = markdown( $text, {
+        empty_element_suffix => '>',
+        tab_width => 2
+    } );
+
     use Text::Markdown;
     my $m = Text::Markdown->new;
     my $html = $m->markdown($text);
@@ -1194,7 +1203,7 @@ B<Markdown>
     my $m = Text::Markdown->new;
     my $html = $m->markdown( $text, {
         empty_element_suffix => '>',
-        tab_width =>2
+        tab_width => 2
     } );
 
 =head1 DESCRIPTION

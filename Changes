@@ -1,5 +1,8 @@
 Tis file documents the revision history for Perl extension Text::Markdown.
 
+1.03  2005-11-09 00:00:00
+        - Added support for options to non-oo api
+
 1.02  2005-11-09 00:00:00
         - Added option handling
 
