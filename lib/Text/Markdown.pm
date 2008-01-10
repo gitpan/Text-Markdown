@@ -12,9 +12,10 @@ use strict;
 use warnings;
 
 use Digest::MD5 qw(md5_hex);
+use Encode;
 use base 'Exporter';
 
-our $VERSION   = '1.0.3';
+our $VERSION   = '1.0.4';
 our @EXPORT_OK = qw/markdown/;
 
 # Tue 14 Dec 2004
@@ -78,6 +79,17 @@ my %g_html_blocks;
 # Used to track when we're inside an ordered or unordered list
 # (see _ProcessListItems() for details):
 my $g_list_level = 0;
+
+sub md5_utf8 {
+# Internal function used to safely MD5sum chunks of the input, which might be Unicode in Perl's internal representation.
+  my $input = shift;
+  return undef unless defined $input;
+  if (Encode::is_utf8 $input) {
+    return md5_hex(encode('utf8', $input));
+  } else {
+    return md5_hex($input);
+  }
+}
 
 sub Markdown {
 #
@@ -201,7 +213,7 @@ sub _HashHTMLBlocks {
 					(?=\n+|\Z)	# followed by a newline or end of document
 				)
 			}{
-				my $key = md5_hex($1);
+				my $key = md5_utf8($1);
 				$g_html_blocks{$key} = $1;
 				"\n\n" . $key . "\n\n";
 			}egmx;
@@ -221,7 +233,7 @@ sub _HashHTMLBlocks {
 					(?=\n+|\Z)	# followed by a newline or end of document
 				)
 			}{
-				my $key = md5_hex($1);
+				my $key = md5_utf8($1);
 				$g_html_blocks{$key} = $1;
 				"\n\n" . $key . "\n\n";
 			}egmx;
@@ -243,7 +255,7 @@ sub _HashHTMLBlocks {
 					(?=\n{2,}|\Z)		# followed by a blank line or end of document
 				)
 			}{
-				my $key = md5_hex($1);
+				my $key = md5_utf8($1);
 				$g_html_blocks{$key} = $1;
 				"\n\n" . $key . "\n\n";
 			}egx;
@@ -266,7 +278,7 @@ sub _HashHTMLBlocks {
 					(?=\n{2,}|\Z)		# followed by a blank line or end of document
 				)
 			}{
-				my $key = md5_hex($1);
+				my $key = md5_utf8($1);
 				$g_html_blocks{$key} = $1;
 				"\n\n" . $key . "\n\n";
 			}egx;

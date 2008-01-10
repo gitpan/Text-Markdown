@@ -1,11 +1,19 @@
 ---
 name: Text-Markdown
-version: 1.0.3
-author: ~
-abstract: ~
+version: 1.0.4
+author:
+  - 'Tomas Doran <bobtfish@bobtfish.net>'
+abstract: CPAN version of John Gruber's Markdown text to HTML filter
 license: perl
+resources:
+  license: http://dev.perl.org/licenses/
+requires:
+  Encode: 0
 provides:
   Text::Markdown:
     file: lib/Text/Markdown.pm
-    version: 1.0.3
-generated_by: Module::Build version 0.2611
+    version: 1.0.4
+generated_by: Module::Build version 0.2808
+meta-spec:
+  url: http://module-build.sourceforge.net/META-spec-v1.2.html
+  version: 1.2

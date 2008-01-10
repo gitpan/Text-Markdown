@@ -1,5 +1,8 @@
 Tis file documents the revision history for Perl extension Text::Markdown.
 
+1.04  2008-01-10 22:32:00
+       - Added unicode support fix and test from CPAN RT#27482
+
 1.03  2005-11-09 00:00:00
         - Added support for options to non-oo api
 
