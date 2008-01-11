@@ -1,5 +1,8 @@
 Tis file documents the revision history for Perl extension Text::Markdown.
 
+1.05  2008-01-11 13:35:00
+       - The unicode test should use Text::Markdown, not Text::MultiMarkdown, my bad!
+
 1.04  2008-01-10 22:32:00
        - Added unicode support fix and test from CPAN RT#27482
 

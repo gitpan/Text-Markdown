@@ -2,9 +2,9 @@ use utf8;
 use warnings;
 use Test::More tests => 3;
 
-use_ok('Text::MultiMarkdown', 'markdown');
+use_ok('Text::Markdown', 'markdown');
 
-my $m = Text::MultiMarkdown->new;
+my $m = Text::Markdown->new;
 my $html1;
 $html1 = eval { $m->markdown(<<"EOF"); };
 > Fo—o

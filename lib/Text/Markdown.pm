@@ -15,7 +15,7 @@ use Digest::MD5 qw(md5_hex);
 use Encode;
 use base 'Exporter';
 
-our $VERSION   = '1.0.4';
+our $VERSION   = '1.0.5';
 our @EXPORT_OK = qw/markdown/;
 
 # Tue 14 Dec 2004

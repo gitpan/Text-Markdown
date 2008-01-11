@@ -1,6 +1,6 @@
 ---
 name: Text-Markdown
-version: 1.0.4
+version: 1.0.5
 author:
   - 'Tomas Doran <bobtfish@bobtfish.net>'
 abstract: CPAN version of John Gruber's Markdown text to HTML filter
@@ -12,7 +12,7 @@ requires:
 provides:
   Text::Markdown:
     file: lib/Text/Markdown.pm
-    version: 1.0.4
+    version: 1.0.5
 generated_by: Module::Build version 0.2808
 meta-spec:
   url: http://module-build.sourceforge.net/META-spec-v1.2.html
