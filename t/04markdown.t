@@ -1,27 +1,29 @@
+use strict;
+use warnings;
 use Test::More tests => 3;
 
-use_ok( 'Text::Markdown', 'markdown' );
+use_ok( 'Text::MultiMarkdown', 'markdown' );
 
-my $m     = Text::Markdown->new;
+my $m     = Text::MultiMarkdown->new;
 my $html1 = $m->markdown(<<"EOF");
 Foo
 
 Bar
 EOF
 
-is( <<"EOF", $html1 );
+is( $html1, <<"EOF" );
 <p>Foo</p>
 
 <p>Bar</p>
 EOF
 
-my $html2 = markdown(<<"EOF");
+my $html2 = $m->markdown(<<"EOF");
 Foo
 
 Bar
 EOF
 
-is( <<"EOF", $html2 );
+is( $html2, <<"EOF" );
 <p>Foo</p>
 
 <p>Bar</p>
