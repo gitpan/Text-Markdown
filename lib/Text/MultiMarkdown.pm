@@ -8,7 +8,7 @@ use Encode      qw();
 use Carp        qw(croak);
 use base        'Exporter';
 
-our $VERSION   = '1.0.13';
+our $VERSION   = '1.0.14';
 our @EXPORT_OK = qw(markdown);
 
 =head1 NAME
@@ -2410,17 +2410,30 @@ Those that I have found are listed below:
 
 =over
 
-=item python
+=item python - <http://www.freewisdom.org/projects/python-markdown/>
 
-=item ruby (maruku)
+Python Markdown which is mostly compatible with the original, with an interesting extension API.
 
-=item php
+=item ruby (maruku) - <http://maruku.rubyforge.org/>
 
-=item lua
+One of the nicest implementations out there. Builds a parse tree internally so very flexible.
 
-=item haskell
+=item php - <http://michelf.com/projects/php-markdown/>
 
-=item javascript
+A direct port of Markdown.pl, also has an 'extra' version, which adds a number of features that
+were borrowed by MultiMarkdown
+
+=item lua - <http://www.frykholm.se/files/markdown.lua>
+
+Port to lua. Simple and lightweight (as lua is).
+
+=item haskell - <http://johnmacfarlane.net/pandoc/>
+
+Pandoc is a more general library, supporting Markdown, reStructuredText, LaTeX and more.
+
+=item javascript - <http://www.attacklab.net/showdown-gui.html>
+
+Direct(ish) port of Markdown.pl to JavaScript
 
 =back
 
@@ -2465,7 +2478,7 @@ MultiMarkdown changes Copyright (c) 2005-2006 Fletcher T. Penney
 All rights reserved.
 
 Text::MultiMarkdown changes Copyright (c) 2006-2008 Darren Kulp
-<http://kulp.ch> and Tomas Doran <bobtfish@bobtfish.net>
+<http://kulp.ch> and Tomas Doran <http://www.bobtfish.net>
 
 Redistribution and use in source and binary forms, with or without
 modification, are permitted provided that the following conditions are
