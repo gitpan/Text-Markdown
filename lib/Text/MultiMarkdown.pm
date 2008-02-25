@@ -8,7 +8,7 @@ use Encode      qw();
 use Carp        qw(croak);
 use base        'Exporter';
 
-our $VERSION   = '1.0.14';
+our $VERSION   = '1.0.16';
 our @EXPORT_OK = qw(markdown);
 
 =head1 NAME
@@ -307,9 +307,7 @@ sub markdown {
     local $self->{disable_tables}           = exists $options->{disable_tables}         ? $options->{disable_tables}         : $self->{disable_tables};
     local $self->{disable_footnotes}        = exists $options->{disable_footnotes}      ? $options->{disable_footnotes}      : $self->{disable_footnotesf};
     local $self->{disable_bibliography}     = exists $options->{disable_bibliography}   ? $options->{disable_bibliography}   : $self->{disable_bibliography};
-    if (exists $options->{tab_width}) {
-        local $self->{tab_width} = $options->{tab_width};
-    }    
+    local $self->{tab_width}                = exists $options->{tab_width}              ? $options->{tab_width}              : $self->{tab_width};
     
     # Clear the global hashes. If we don't clear these, you get conflicts
     # from other articles when generating a page which contains more than
@@ -509,10 +507,7 @@ sub _HashHTMLBlocks {
 	my $extract_block = gen_extract_tagged($open_tag, $close_tag, undef, { ignore => [$empty_tag] });
 
 	my @chunks;
-	## TO-DO: the 0,3 on the next line ought to respect the
-	## tabwidth, or else, we should mandate 4-space tabwidth and
-	## be done with it:
-	while ($text =~ s{^(([ ]{0,3}<)?.*\n)}{}m) {
+	while ($text =~ s{^(([ ]{0,$less_than_tab}<)?.*\n)}{}m) {
 		my $cur_line = $1;
 		if (defined $2) {
 			# current line could be start of code block

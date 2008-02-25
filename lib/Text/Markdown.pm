@@ -4,7 +4,7 @@ use strict;
 use warnings;
 use base qw(Text::MultiMarkdown);
 
-our $VERSION   = '1.0.14';
+our $VERSION   = '1.0.16';
 our @EXPORT_OK = qw(markdown);
 
 =head1 NAME
@@ -129,6 +129,7 @@ sub markdown {
 
     $options ||= {};
     %{ $options } = (%$options, %force_opts);
+
     return $self->SUPER::markdown($text, $options);
 }
 
