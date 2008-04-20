@@ -8,7 +8,7 @@ use Encode      qw();
 use Carp        qw(croak);
 use base        'Exporter';
 
-our $VERSION   = '1.0.17';
+our $VERSION   = '1.0.18';
 our @EXPORT_OK = qw(markdown);
 
 =head1 NAME
@@ -133,7 +133,7 @@ sub new {
     # Is markdown processed in HTML blocks? See t/15inlinehtmldonotturnoffmarkdown.t
     $p{markdown_in_html_blocks} = $p{markdown_in_html_blocks} ? 1 : 0;
     
-    my $self = { %p };
+    my $self = { params => \%p };
     bless $self, ref($class) || $class;
     return $self;
 }
@@ -159,29 +159,28 @@ sub markdown {
             croak('Calling ' . $self . '->markdown (as a class method) is not supported.');
         }
     }
-    
 
     $options ||= {};
+
+    %$self = (%{ $self->{params} }, %$options, params => $self->{params});
+
+    $self->_CleanUpRunData($options);
     
-    # Localise all of these settings, so that if they're frobbed by options here (or metadata later), the change will not persist.
-    # FIXME - There should be a nicer way to do this...
-    local $self->{empty_element_suffix}     = exists $options->{empty_element_suffix}   ? $options->{empty_element_suffix}   : $self->{empty_element_suffix};
-    local $self->{markdown_in_html_blocks}  = exists $options->{markdown_in_html_blocks}? $options->{o}: $self->{markdown_in_html_blocks};
-    local $self->{tab_width}                = exists $options->{tab_width}              ? $options->{tab_width}              : $self->{tab_width};
-    
+    return $self->_Markdown($text);
+}
+
+sub _CleanUpRunData {
+    my ($self, $options) = @_;
     # Clear the global hashes. If we don't clear these, you get conflicts
     # from other articles when generating a page which contains more than
     # one article (e.g. an index page that shows the N most recent
     # articles):
-    $self->{_urls}        = $options->{urls}        ? $options->{urls}        : {}; # FIXME - document and test passing this option.
-    $self->{_titles}      = $options->{titles}      ? $options->{titles}      : {}; # FIXME - ditto
-    $self->{_html_blocks} = $options->{html_blocks} ? $options->{html_blocks} : {}; # FIXME - ditto
-    $self->{_attributes}  = {}; # What is this used for again?
+    $self->{_urls}        = $options->{urls} ? $options->{urls} : {}; # FIXME - document passing this option (tested in 05options.t).
+    $self->{_titles}      = {};
+    $self->{_html_blocks} = {};
     # Used to track when we're inside an ordered or unordered list
     # (see _ProcessListItems() for details)
     $self->{_list_level} = 0;
-
-    return $self->_Markdown($text);
 
 }
 
@@ -192,7 +191,7 @@ sub _Markdown {
 # _EscapeSpecialChars(), so that any *'s or _'s in the <a>
 # and <img> tags get encoded.
 #
-    my ($self, $text) = @_;
+    my ($self, $text, $options) = @_;
 
     $text = $self->_CleanUpDoc($text);
     
@@ -208,6 +207,21 @@ sub _Markdown {
     $text = $self->_ConvertCopyright($text);
 
     return $text . "\n";
+}
+
+=head2 urls
+
+Returns a reference to a hash with the key being the markdown reference and the value being the URL.
+
+Useful for building scripts which preprocess a list of links before the main content. See t/05options.t
+for an example of this hashref being passed back into the markdown method to create links.
+
+=cut
+
+sub urls {
+    my ( $self ) = @_;
+    
+    return $self->{_urls};
 }
 
 sub _CleanUpDoc {
@@ -242,24 +256,23 @@ sub _StripLinkDefinitions {
 
     # Link defs are in the form: ^[id]: url "optional title"
     while ($text =~ s{
-                        ^[ ]{0,$less_than_tab}\[(.+)\]: # id = $1
-                          [ \t]*
-                          \n?               # maybe *one* newline
-                          [ \t]*
-                        <?(\S+?)>?          # url = $2
-                          [ \t]*
-                          \n?               # maybe one newline
-                          [ \t]*
-                        (?:
-                            (?<=\s)         # lookbehind for whitespace
-                            ["(]
-                            (.+?)           # title = $3
-                            [")]
-                            [ \t]*
-                        )?  # title is optional
-                        (?:\n+|\Z)
-                    }
-                    {}mx) {
+            ^[ ]{0,$less_than_tab}\[(.+)\]: # id = \$1
+              [ \t]*
+              \n?               # maybe *one* newline
+              [ \t]*
+            <?(\S+?)>?          # url = \$2
+              [ \t]*
+              \n?               # maybe one newline
+              [ \t]*
+            (?:
+                (?<=\s)         # lookbehind for whitespace
+                ["(]
+                (.+?)           # title = \$3
+                [")]
+                [ \t]*
+            )?  # title is optional
+            (?:\n+|\Z)
+        }{}omx) {
         $self->{_urls}{lc $1} = $self->_EncodeAmpsAndAngles( $2 );    # Link IDs are case-insensitive
         if ($3) {
             $self->{_titles}{lc $1} = $3;
@@ -597,7 +610,9 @@ sub _DoAnchors {
         if ($link_id eq "") {
             $link_id = lc $link_text;   # for shortcut links like [this][].
         }
-
+        
+        $link_id =~ s{[ ]*\n}{ }g; # turn embedded newlines into spaces
+        
         $self->_GenerateAnchor($whole_match, $link_text, $link_id);
     }xsge;
 
@@ -646,7 +661,7 @@ sub _DoAnchors {
 		my $result;
 		my $whole_match = $1;
 		my $link_text   = $2;
-		(my $link_id = lc $2) =~ s{[ ]?\n}{ }g; # lower-case and turn embedded newlines into spaces
+		(my $link_id = lc $2) =~ s{[ ]*\n}{ }g; # lower-case and turn embedded newlines into spaces
 
         $self->_GenerateAnchor($whole_match, $link_text, $link_id);
 	}xsge;
@@ -1457,6 +1472,11 @@ Markdown has been re-implemented in a number of languages, and with a number of 
 Those that I have found are listed below:
 
 =over
+
+=item C - <http://www.pell.portland.or.us/~orc/Code/discount>
+
+Discount - Original Markdown, but in C. Fastest implementation available, and passes MDTest. 
+Adds it's own set of custom features.
 
 =item python - <http://www.freewisdom.org/projects/python-markdown/>
 

@@ -11,6 +11,7 @@ GetOptions(\%cli_opts,
     'version',
     'shortversion',
     'html4tags',
+    'help',
 );
 if ($cli_opts{'version'}) {     # Version info
     print "\nThis is Markdown, version $Text::Markdown::VERSION.\n";
@@ -50,7 +51,7 @@ sub main {
         $f = <>;
     }
 
-    return markdown($f);
+    return $m->markdown($f);
 }
 
 print main(shift(@ARGV)) unless caller();

@@ -8,7 +8,7 @@ use Encode      qw();
 use Carp        qw(croak);
 use base        qw(Text::Markdown);
 
-our $VERSION   = '1.0.17';
+our $VERSION   = '1.0.18';
 our @EXPORT_OK = qw(markdown);
 
 =head1 NAME
@@ -196,35 +196,6 @@ A simple constructor, see the SYNTAX and OPTIONS sections for more information.
 
 =cut
 
-# Regex to match balanced [brackets]. See Friedl's
-# "Mastering Regular Expressions", 2nd Ed., pp. 328-331.
-our ($g_nested_brackets, $g_nested_parens); 
-$g_nested_brackets = qr{
-    (?>                                 # Atomic matching
-       [^\[\]]+                         # Anything other than brackets
-     | 
-       \[
-         (??{ $g_nested_brackets })     # Recursive set of nested brackets
-       \]
-    )*
-}x;
-# Doesn't allow for whitespace, because we're using it to match URLs:
-$g_nested_parens = qr{
-	(?> 								# Atomic matching
-	   [^()\s]+							# Anything other than parens or whitespace
-	 | 
-	   \(
-		 (??{ $g_nested_parens })		# Recursive set of nested brackets
-	   \)
-	)*
-}x;
-
-# Table of hash values for escaped characters:
-our %g_escape_table;
-foreach my $char (split //, '\\`*_{}[]()>#+-.!') {
-    $g_escape_table{$char} = md5_hex($char);
-}
-
 sub new {
     my ($class, %p) = @_;
     
@@ -255,7 +226,7 @@ sub new {
     
     $p{bibliography_title} ||= 'Bibliography'; # FIXME - Test and document, can also be in metadata!
     
-    my $self = { %p };
+    my $self = { params => \%p };
     bless $self, ref($class) || $class;
     return $self;
 }
@@ -281,44 +252,32 @@ sub markdown {
             croak('Calling ' . $self . '->markdown (as a class method) is not supported.');
         }
     }
-    
 
     $options ||= {};
+
+    %$self = (%{ $self->{params} }, %$options, params => $self->{params});
     
-    $self->{_metadata} = {};
-        
-    # Localise all of these settings, so that if they're frobbed by options here (or metadata later), the change will not persist.
-    # FIXME - There should be a nicer way to do this...
-    local $self->{use_wikilinks}            = exists $options->{use_wikilinks}          ? $options->{use_wikilinks}          : $self->{use_wikilinks};
-    local $self->{empty_element_suffix}     = exists $options->{empty_element_suffix}   ? $options->{empty_element_suffix}   : $self->{empty_element_suffix};
-    local $self->{document_format}          = exists $options->{document_format}        ? $options->{document_format}        : $self->{document_format};
-    local $self->{use_metadata}             = exists $options->{use_metadata}           ? $options->{use_metadata}           : $self->{use_metadata};
-    local $self->{strip_metadata}           = exists $options->{strip_metadata}         ? $options->{strip_metadata}         : $self->{strip_metadata};
-    local $self->{markdown_in_html_blocks}  = exists $options->{markdown_in_html_blocks}? $options->{o}: $self->{markdown_in_html_blocks};
-    local $self->{disable_tables}           = exists $options->{disable_tables}         ? $options->{disable_tables}         : $self->{disable_tables};
-    local $self->{disable_footnotes}        = exists $options->{disable_footnotes}      ? $options->{disable_footnotes}      : $self->{disable_footnotes};
-    local $self->{disable_bibliography}     = exists $options->{disable_bibliography}   ? $options->{disable_bibliography}   : $self->{disable_bibliography};
-    local $self->{tab_width}                = exists $options->{tab_width}              ? $options->{tab_width}              : $self->{tab_width};
+    $self->_CleanUpRunData($options);
     
+    return $self->_Markdown($text);
+}
+
+sub _CleanUpRunData {
+    my ($self, $options) = @_;    
     # Clear the global hashes. If we don't clear these, you get conflicts
     # from other articles when generating a page which contains more than
     # one article (e.g. an index page that shows the N most recent
     # articles):
-    $self->{_urls}        = $options->{urls}        ? $options->{urls}        : {}; # FIXME - document and test passing this option.
-    $self->{_titles}      = $options->{titles}      ? $options->{titles}      : {}; # FIXME - ditto
-    $self->{_html_blocks} = $options->{html_blocks} ? $options->{html_blocks} : {}; # FIXME - ditto
     $self->{_crossrefs}   = {};
     $self->{_footnotes}   = {};
     $self->{_references}  = {};
-    $self->{_attributes}  = {}; # What is this used for again?
     $self->{_used_footnotes}  = []; # Why do we need 2 data structures for footnotes? FIXME
     $self->{_used_references} = []; # Ditto for references
     $self->{_citation_counter} = 0;
-    # Used to track when we're inside an ordered or unordered list
-    # (see _ProcessListItems() for details)
-    $self->{_list_level} = 0;
-
-    return $self->_Markdown($text); 
+    $self->{_metadata} = {};
+    $self->{_attributes}  = {}; # Used for extra attributes on links / images.
+    
+    $self->SUPER::_CleanUpRunData($options);
 }
 
 sub _Markdown {
@@ -456,31 +415,33 @@ sub _StripLinkDefinitions {
     # Link defs are in the form: ^[id]: url "optional title"
     # FIXME - document attributes here.
     while ($text =~ s{
-                        ^[ ]{0,$less_than_tab}\[(.+)\]: # id = $1
-                          [ \t]*
-                          \n?               # maybe *one* newline
-                          [ \t]*
-                        <?(\S+?)>?          # url = $2
-                          [ \t]*
-                          \n?               # maybe one newline
-                          [ \t]*
-                        (?:
-                            (?<=\s)         # lookbehind for whitespace
-                            ["(]
-                            (.+?)           # title = $3
-                            [")]
-                            [ \t]*
-                        )?  # title is optional
-                        
-                        # MultiMarkdown addition for attribute support
-                        \n?
-                        (               # Attributes = $4
-                            (?<=\s)         # lookbehind for whitespace
-                            (([ \t]*\n)?[ \t]*((\S+=\S+)|(\S+=".*?")))*
-                        )?
-                        [ \t]*
-                        # /addition
-                        (?:\n+|\Z)
+	                	# Pattern altered for MultiMarkdown
+                		# in order to not match citations or footnotes
+                		^[ ]{0,$less_than_tab}\[([^#^].*)\]:	# id = $1
+                		  [ \t]*
+                		  \n?				# maybe *one* newline
+                		  [ \t]*
+                		<?(\S+?)>?			# url = $2
+                		  [ \t]*
+                		  \n?				# maybe one newline
+                		  [ \t]*
+                		(?:
+                			(?<=\s)			# lookbehind for whitespace
+                			["(]
+                			(.+?)			# title = $3
+                			[")]
+                			[ \t]*
+                		)?	# title is optional
+		
+                		# MultiMarkdown addition for attribute support
+                		\n?
+                		(				# Attributes = $4
+                			(?<=\s)			# lookbehind for whitespace
+                			(([ \t]*\n)?[ \t]*((\S+=\S+)|(\S+=".*?")))*
+                		)?
+                		[ \t]*
+                		# /addition
+                		(?:\n+|\Z)
                     }
                     {}mx) {
         $self->{_urls}{lc $1} = $self->_EncodeAmpsAndAngles( $2 );    # Link IDs are case-insensitive
@@ -672,10 +633,10 @@ sub _StripFootnoteDefinitions {
     my $less_than_tab = $self->{tab_width} - 1;
 
     while ($text =~ s{
-        \n\[\^(.+?)\]:[ \t]*# id = $1
-        \n?
-        (.*?)\n{1,2}        # end at new paragraph
-        ((?=\n[ ]{0,$less_than_tab}\S)|\Z)  # Lookahead for non-space at line-start, or end of doc
+		\n\[\^([^\n]+?)\]\:[ \t]*# id = $1
+		\n?
+		(.*?)\n{1,2}		# end at new paragraph
+		((?=\n[ ]{0,$less_than_tab}\S)|\Z)	# Lookahead for non-space at line-start, or end of doc
     }
     {\n}sx)
     {
