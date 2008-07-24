@@ -8,7 +8,7 @@ use Encode      qw();
 use Carp        qw(croak);
 use base        qw(Text::Markdown);
 
-our $VERSION   = '1.0.20';
+our $VERSION   = '1.0.21';
 our @EXPORT_OK = qw(markdown);
 
 =head1 NAME
@@ -631,7 +631,7 @@ sub _GenerateImageCrossRefs {
 sub _StripFootnoteDefinitions {
     my ($self, $text) = @_;
     my $less_than_tab = $self->{tab_width} - 1;
-
+    
     while ($text =~ s{
 	  \n\[\^([^\n]+?)\]\:[ \t]*# id = $1
 	  \n?
@@ -1054,6 +1054,7 @@ sub _DoTables {
             my $count=0;
             while ($line =~ /\|?\s*([^\|]+?)\s*(\|+|\Z)/gs) {
                 # process contents of each cell
+                no warnings 'uninitialized';
                 my $cell = $self->_RunSpanGamut($1);
                 my $ending = $2;
                 my $colspan = "";
