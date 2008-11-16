@@ -26,4 +26,4 @@ requires:
   perl: 5.8.0
 resources:
   repository: http://svn.kulp.ch/cpan/text_multimarkdown
-version: 1.0.23
+version: 1.0.24

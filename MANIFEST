@@ -59,6 +59,7 @@ t/36multimarkdown_featurebleed.t
 t/37anchormultilinebugs.t
 t/38listshorizontalrule.t
 t/39listsindentededgecase.t
+t/40trustliststart.t
 t/code-hr.t
 t/docs-maruku-unittest/abbreviations.html
 t/docs-maruku-unittest/abbreviations.text
