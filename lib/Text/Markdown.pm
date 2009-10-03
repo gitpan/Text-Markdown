@@ -9,7 +9,7 @@ use Encode      qw();
 use Carp        qw(croak);
 use base        'Exporter';
 
-our $VERSION   = '1.0.25';
+our $VERSION   = '1.0.26';
 our @EXPORT_OK = qw(markdown);
 
 =head1 NAME
@@ -56,12 +56,36 @@ This module implements the 'original' Markdown markdown syntax from:
 
     http://daringfireball.net/projects/markdown/
 
+Note that L<Text::Markdown> ensures that the output always ends with
+B<one> newline. The fact that multiple newlines are collapsed into one
+makes sense, because this is the behavior of HTML towards whispace. The
+fact that there's always a newline at the end makes sense again, given
+that the output will always be nested in a B<block>-level element (as
+opposed to an inline element). That block element can be a C<< <p> >>
+(most often), or a C<< <table> >>.
+
+Markdown is B<not> interpreted in HTML block-level elements, in order for
+chunks of pasted HTML (e.g. JavaScript widgets, web counters) to not be
+magically (mis)interpreted. For selective processing of Markdown in some,
+but not other, HTML block elements, add a C<markdown> attribute to the block
+element and set its value to C<1>, C<on> or C<yes>:
+
+    <div markdown="1" class="navbar">
+    * Home
+    * About
+    * Contact
+    <div>
+
+The extra C<markdown> attribute will be stripped when generating the output.
+
 =head1 OPTIONS
 
-Text::Markdown supports a number of options to its processor which control the behaviour of the output document.
+Text::Markdown supports a number of options to its processor which control
+the behaviour of the output document.
 
-These options can be supplied to the constructor, or in a hash within individual calls to the markdown() method.
-See the synopsis for examples of both styles.
+These options can be supplied to the constructor, or in a hash within
+individual calls to the L</markdown> method. See the SYNOPSIS for examples
+of both styles.
 
 The options for the processor are:
 
@@ -77,12 +101,6 @@ This option controls the end of empty element tags:
 =item tab_width
 
 Controls indent width in the generated markup. Defaults to 4.
-
-=item markdown_in_html_blocks
-
-Controls if Markdown is processed when inside HTML blocks. Defaults to 0 in
-order to not inadvertently parse as Markdown chunks of HTML that the user may
-have pasted in their document (e.g. web counters in a wiki page).
 
 =item trust_list_start_value
 
@@ -100,8 +118,6 @@ numbering.  This will let you pick up where you left off by writing:
 (Note that in the above, quux will be numbered 4.)
 
 =back
-
-=head1 METHODS
 
 =cut
 
@@ -150,9 +166,6 @@ sub new {
     $p{tab_width} = 4 unless (defined $p{tab_width} and $p{tab_width} =~ m/^\d+$/);
 
     $p{empty_element_suffix} ||= ' />'; # Change to ">" for HTML output
-
-    # Is markdown processed in HTML blocks? See t/15inlinehtmldonotturnoffmarkdown.t
-    $p{markdown_in_html_blocks} = $p{markdown_in_html_blocks} ? 1 : 0;
 
     $p{trust_list_start_value} = $p{trust_list_start_value} ? 1 : 0;
 
@@ -218,12 +231,12 @@ sub _Markdown {
 
     $text = $self->_CleanUpDoc($text);
 
-    # Turn block-level HTML elements into hash entries if we are not supposed to parse the Markdown in them
-    $text = $self->_HashHTMLBlocks($text) unless $self->{markdown_in_html_blocks};
+    # Turn block-level HTML elements into hash entries, and interpret markdown in them if they have a 'markdown="1"' attribute
+    $text = $self->_HashHTMLBlocks($text, {interpret_markdown_on_attribute => 1});
 
     $text = $self->_StripLinkDefinitions($text);
 
-    $text = $self->_RunBlockGamut($text);
+    $text = $self->_RunBlockGamut($text, {wrap_in_p_tags => 1});
 
     $text = $self->_UnescapeSpecialChars($text);
 
@@ -234,10 +247,12 @@ sub _Markdown {
 
 =head2 urls
 
-Returns a reference to a hash with the key being the markdown reference and the value being the URL.
+Returns a reference to a hash with the key being the markdown reference
+and the value being the URL.
 
-Useful for building scripts which preprocess a list of links before the main content. See t/05options.t
-for an example of this hashref being passed back into the markdown method to create links.
+Useful for building scripts which preprocess a list of links before the
+main content. See F<t/05options.t> for an example of this hashref being
+passed back into the markdown method to create links.
 
 =cut
 
@@ -320,10 +335,10 @@ sub _md5_utf8 {
 }
 
 sub _HashHTMLBlocks {
-    my ($self, $text) = @_;
+    my ($self, $text, $options) = @_;
     my $less_than_tab = $self->{tab_width} - 1;
 
-    # Hashify HTML blocks:
+    # Hashify HTML blocks (protect from further interpretation by encoding to an md5):
     # We only want to do this for block-level HTML tags, such as headers,
     # lists, and tables. That's because we still want to wrap <p>s around
     # "paragraphs" that are wrapped in non-block-level tags, such as anchors,
@@ -347,26 +362,44 @@ sub _HashHTMLBlocks {
                                 ".+?"       # "Attribute value"
                              |
                                 '.+?'       # 'Attribute value'
+                             |
+                                [^\s]+?      # AttributeValue (HTML5)
                             )
                         )*                  # Zero or more
                     }x;
 
     my $empty_tag = qr{< \w+ $tag_attrs \s* />}oxms;
     my $open_tag =  qr{< $block_tags $tag_attrs \s* >}oxms;
-    my $close_tag = undef;    # let Text::Balanced handle this
+    my $close_tag = undef;       # let Text::Balanced handle this
+    my $prefix_pattern = undef;  # Text::Balanced
+    my $markdown_attr = qr{ \s* markdown \s* = \s* (['"]) (.*?) \1 }xs;
 
     use Text::Balanced qw(gen_extract_tagged);
-    my $extract_block = gen_extract_tagged($open_tag, $close_tag, undef, { ignore => [$empty_tag] });
+    my $extract_block = gen_extract_tagged($open_tag, $close_tag, $prefix_pattern, { ignore => [$empty_tag] });
 
     my @chunks;
-    # parse each line...
+    # parse each line, looking for block-level HTML tags
     while ($text =~ s{^(([ ]{0,$less_than_tab}<)?.*\n)}{}m) {
         my $cur_line = $1;
         if (defined $2) {
             # current line could be start of code block
 
-            my ($tag, $remainder) = $extract_block->($cur_line . $text);
+            my ($tag, $remainder, $prefix, $opening_tag, $text_in_tag, $closing_tag) = $extract_block->($cur_line . $text);
             if ($tag) {
+                if ($options->{interpret_markdown_on_attribute} and $opening_tag =~ s/$markdown_attr//i) {
+                    my $markdown = $2;
+                    if ($markdown =~ /^(1|on|yes)$/) {
+                        # interpret markdown and reconstruct $tag to include the interpreted $text_in_tag
+                        my $wrap_in_p_tags = $opening_tag =~ /^<(div|iframe)/;
+                        $tag = $prefix . $opening_tag . "\n"
+                          . $self->_RunBlockGamut($text_in_tag, {wrap_in_p_tags => $wrap_in_p_tags})
+                          . "\n" . $closing_tag
+                        ;
+                    } else {
+                        # just remove the markdown="0" attribute
+                        $tag = $prefix . $opening_tag . $text_in_tag . $closing_tag;
+                    }
+                }
                 my $key = _md5_utf8($tag);
                 $self->{_html_blocks}{$key} = $tag;
                 push @chunks, "\n\n" . $key . "\n\n";
@@ -383,17 +416,9 @@ sub _HashHTMLBlocks {
         }
 
     }
-    push @chunks, $text; # Whatever is left.
+    push @chunks, $text;  # whatever is left
 
     $text = join '', @chunks;
-
-    # Special case just for <hr />. It was easier to make a special case than
-    # to make the other regex more complicated.
-    $text = $self->_HashHR($text);
-
-    $text = $self->_HashHTMLComments($text);
-
-    $text = $self->_HashPHPASPBlocks($text);
 
     return $text;
 }
@@ -490,7 +515,7 @@ sub _RunBlockGamut {
 # These are all the transformations that form block-level
 # tags like paragraphs, headers, and list items.
 #
-    my ($self, $text) = @_;
+    my ($self, $text, $options) = @_;
 
     # Do headers first, as these populate cross-refs
     $text = $self->_DoHeaders($text);
@@ -513,7 +538,15 @@ sub _RunBlockGamut {
     # <p> tags around block-level tags.
     $text = $self->_HashHTMLBlocks($text);
 
-    $text = $self->_FormParagraphs($text);
+    # Special case just for <hr />. It was easier to make a special case than
+    # to make the other regex more complicated.
+    $text = $self->_HashHR($text);
+
+    $text = $self->_HashHTMLComments($text);
+
+    $text = $self->_HashPHPASPBlocks($text);
+
+    $text = $self->_FormParagraphs($text, {wrap_in_p_tags => $options->{wrap_in_p_tags}});
 
     return $text;
 }
@@ -707,8 +740,8 @@ sub _GenerateAnchor {
         return $whole_match;
     }
 
-    $url =~ s! \* !$g_escape_table{'*'}!gox;     # We've got to encode these to avoid
-    $url =~ s!  _ !$g_escape_table{'_'}!gox;     # conflicting with italics/bold.
+    $url =~ s! \* !$g_escape_table{'*'}!gox;    # We've got to encode these to avoid
+    $url =~ s!  _ !$g_escape_table{'_'}!gox;    # conflicting with italics/bold.
     $url =~ s{^<(.*)>$}{$1};                    # Remove <>'s surrounding URL, if present
 
     $result = qq{<a href="$url"};
@@ -1043,7 +1076,7 @@ sub _ProcessListItemsOL {
         my $leading_space = $2;
 
         if ($leading_line or ($item =~ m/\n{2,}/)) {
-            $item = $self->_RunBlockGamut($self->_Outdent($item));
+            $item = $self->_RunBlockGamut($self->_Outdent($item), {wrap_in_p_tags => 1});
         }
         else {
             # Recursion for sub-lists:
@@ -1108,7 +1141,7 @@ sub _ProcessListItemsUL {
         my $leading_space = $2;
 
         if ($leading_line or ($item =~ m/\n{2,}/)) {
-            $item = $self->_RunBlockGamut($self->_Outdent($item));
+            $item = $self->_RunBlockGamut($self->_Outdent($item), {wrap_in_p_tags => 1});
         }
         else {
             # Recursion for sub-lists:
@@ -1126,7 +1159,11 @@ sub _ProcessListItemsUL {
 
 sub _DoCodeBlocks {
 #
-#   Process Markdown `<pre><code>` blocks.
+# Process Markdown code blocks (indented with 4 spaces or 1 tab):
+# * outdent the spaces/tab
+# * encode <, >, & into HTML entities
+# * escape Markdown special characters into MD5 hashes
+# * trim leading and trailing newlines
 #
 
     my ($self, $text) = @_;
@@ -1135,19 +1172,19 @@ sub _DoCodeBlocks {
         (?:\n\n|\A)
         (                # $1 = the code block -- one or more lines, starting with a space/tab
           (?:
-            (?:[ ]{$self->{tab_width}} | \t)  # Lines must start with a tab or a tab-width of spaces
+            (?:[ ]{$self->{tab_width}} | \t)   # Lines must start with a tab or a tab-width of spaces
             .*\n+
           )+
         )
         ((?=^[ ]{0,$self->{tab_width}}\S)|\Z)    # Lookahead for non-space at line-start, or end of doc
     }{
         my $codeblock = $1;
-        my $result; # return value
+        my $result;  # return value
 
         $codeblock = $self->_EncodeCode($self->_Outdent($codeblock));
         $codeblock = $self->_Detab($codeblock);
-        $codeblock =~ s/\A\n+//; # trim leading newlines
-        $codeblock =~ s/\n+\z//; # trim trailing newlines
+        $codeblock =~ s/\A\n+//;  # trim leading newlines
+        $codeblock =~ s/\n+\z//;  # trim trailing newlines
 
         $result = "\n\n<pre><code>" . $codeblock . "\n</code></pre>\n\n";
 
@@ -1285,7 +1322,7 @@ sub _DoBlockQuotes {
             my $bq = $1;
             $bq =~ s/^[ \t]*>[ \t]?//gm;    # trim one level of quoting
             $bq =~ s/^[ \t]+$//mg;          # trim whitespace-only lines
-            $bq = $self->_RunBlockGamut($bq);      # recurse
+            $bq = $self->_RunBlockGamut($bq, {wrap_in_p_tags => 1});      # recurse
 
             $bq =~ s/^/  /mg;
             # These leading spaces screw with <pre> content, so we need to fix that:
@@ -1309,7 +1346,7 @@ sub _FormParagraphs {
 #   Params:
 #       $text - string to process with html <p> tags
 #
-    my ($self, $text) = @_;
+    my ($self, $text, $options) = @_;
 
     # Strip leading and trailing lines:
     $text =~ s/\A\n+//;
@@ -1323,8 +1360,10 @@ sub _FormParagraphs {
     foreach (@grafs) {
         unless (defined( $self->{_html_blocks}{$_} )) {
             $_ = $self->_RunSpanGamut($_);
-            s/^([ \t]*)/<p>/;
-            $_ .= "</p>";
+            if ($options->{wrap_in_p_tags}) {
+                s/^([ \t]*)/<p>/;
+                $_ .= "</p>";
+            }
         }
     }
 
@@ -1577,7 +1616,7 @@ Those that I have found are listed below:
 =item C - <http://www.pell.portland.or.us/~orc/Code/discount>
 
 Discount - Original Markdown, but in C. Fastest implementation available, and passes MDTest.
-Adds it's own set of custom features.
+Adds its own set of custom features.
 
 =item python - <http://www.freewisdom.org/projects/python-markdown/>
 
@@ -1632,6 +1671,8 @@ See the Changes file for detailed release notes for this version.
 
     CPAN Module Text::MultiMarkdown (based on Text::Markdown by Sebastian
     Riedel) originally by Darren Kulp (http://kulp.ch/)
+    
+    Support for markdown="1" by Dan Dascalescu (http://dandascalescu.com)
 
     This module is maintained by: Tomas Doran http://www.bobtfish.net/
 
