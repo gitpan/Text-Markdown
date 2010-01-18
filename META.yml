@@ -4,7 +4,6 @@ author:
   - 'Tomas Doran <bobtfish@bobtfish.net>'
 build_requires:
   ExtUtils::MakeMaker: 6.42
-  File::Slurp: 9999.08
   FindBin: 0
   List::MoreUtils: 0
   Test::Differences: 0
@@ -32,4 +31,4 @@ resources:
   bugtracker: http://github.com/bobtfish/text-markdown/issues
   license: http://opensource.org/licenses/bsd-license.php
   repository: http://github.com/bobtfish/text-markdown/
-version: 1.000029
+version: 1.000030
