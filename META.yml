@@ -12,7 +12,7 @@ build_requires:
 configure_requires:
   ExtUtils::MakeMaker: 6.42
 distribution_type: module
-generated_by: 'Module::Install version 0.91'
+generated_by: 'Module::Install version 0.910'
 license: bsd
 meta-spec:
   url: http://module-build.sourceforge.net/META-spec-v1.4.html
@@ -31,4 +31,4 @@ resources:
   bugtracker: http://github.com/bobtfish/text-markdown/issues
   license: http://opensource.org/licenses/bsd-license.php
   repository: http://github.com/bobtfish/text-markdown/
-version: 1.000030
+version: 1.000031
